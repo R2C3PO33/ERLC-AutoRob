@@ -39,8 +39,6 @@ matched_text_center = None
 click_count = 0
 MAX_CLICKS = 5
 
-sct = mss()
-
 def click(x, y):
     ctypes.windll.user32.SetCursorPos(x, y)
     ctypes.windll.user32.mouse_event(2, 0, 0, 0, 0)
@@ -63,8 +61,9 @@ def normalize(text):
     return ''.join(normalize_map.get(char, char) for char in text if char.isalnum())
 
 def extract_reference_text(region):
-    monitor = {'left': region[0], 'top': region[1], 'width': region[2], 'height': region[3]}
-    img = np.array(sct.grab(monitor))[:, :, :3]  # Drop alpha
+    with mss() as sct:
+        monitor = {'left': region[0], 'top': region[1], 'width': region[2], 'height': region[3]}
+        img = np.array(sct.grab(monitor))[:, :, :3]
     results = reader.readtext(img)
 
     best_conf = 0.0
@@ -77,7 +76,7 @@ def extract_reference_text(region):
         if conf >= CONFIDENCE_THRESHOLD:
             norm_text = normalize(raw_text.upper())
             if norm_text:
-                print(f"[Reference Area] Found (\u2265{CONFIDENCE_THRESHOLD:.2f}): '{norm_text}' (raw: '{raw_text}', conf: {conf:.4f})")
+                print(f"[Reference Area] Found (≥{CONFIDENCE_THRESHOLD:.2f}): '{norm_text}' (raw: '{raw_text}', conf: {conf:.4f})")
                 return norm_text
 
         if conf > best_conf:
@@ -115,8 +114,9 @@ def check_pixels_around(img_rgb, center):
 
 def scan_for_match():
     global matched_text_center, reference_text
-    monitor = {'left': detection_region[0], 'top': detection_region[1], 'width': detection_region[2], 'height': detection_region[3]}
-    img = np.array(sct.grab(monitor))[:, :, :3]
+    with mss() as sct:
+        monitor = {'left': detection_region[0], 'top': detection_region[1], 'width': detection_region[2], 'height': detection_region[3]}
+        img = np.array(sct.grab(monitor))[:, :, :3]
     results = reader.readtext(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
 
     for bbox, text, conf in results:
@@ -159,8 +159,9 @@ def worker():
             else:
                 time.sleep(0.01)
         else:
-            monitor = {'left': detection_region[0], 'top': detection_region[1], 'width': detection_region[2], 'height': detection_region[3]}
-            img = np.array(sct.grab(monitor))[:, :, :3]
+            with mss() as sct:
+                monitor = {'left': detection_region[0], 'top': detection_region[1], 'width': detection_region[2], 'height': detection_region[3]}
+                img = np.array(sct.grab(monitor))[:, :, :3]
 
             if matched_text_center and check_pixels_around(img, matched_text_center):
                 screen_x = detection_region[0] + matched_text_center[0]
